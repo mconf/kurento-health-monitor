@@ -1,6 +1,6 @@
 kurento:
   - ip: ""
     url: ws://HOST/kurento
-kurentoStartupRetries: 10
+kurentoStartupRetries: Infinity
 webhookURL: WEBHOOK_URL
 hostAddress: HOST_ADDRESS
