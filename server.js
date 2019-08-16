@@ -139,7 +139,6 @@ class Monitor {
       const { client, id, url, ip } = host;
       Logger.error('[monitor] Host', id, 'was disconnected for some reason, will have to clean up all elements and notify users');
       this.removeHost(id);
-      // TODO emit curl webhook offline
       if (!host.failureNotified) {
         try {
           this.emitHookWarning(`${HOST_NAME} triggered MEDIA_SERVER_OFFLINE for Kurento ${url} ${ip}`);
@@ -228,7 +227,6 @@ class Monitor {
   static greatRandomToken (size, base = 32) {
     let i, r,
       token = '';
-
 
     for( i=0; i < size; i++ ) {
       r = Math.random() * base|0;
