@@ -1,0 +1,5 @@
+kurento:
+  __name: KURENTO
+  __format: json
+webhookURL: WEBHOOK_URL
+hostAddress: HOST_ADDRESS
