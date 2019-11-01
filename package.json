@@ -8,7 +8,7 @@
   "dependencies": {
     "config": "1.30.0",
     "js-yaml": "3.13.1",
-    "kurento-client": "git+https://github.com/mconf/kurento-client-js.git#mconf"
+    "kurento-client": "git+https://github.com/Kurento/kurento-client-js.git#6.11.0"
   },
   "optionalDependencies": {}
 }
