@@ -16,6 +16,12 @@ const HOST_RETRY_TIMER = 3000;
 const KMS_FAILOVER_TIMEOUT_MS = 15000;
 const WEBHOOK_URL = config.get('webhookURL');
 const HOST_NAME = config.has('hostAddress')? config.get('hostAddress') : os.hostname();
+const CONNECTION_HEALTH_CHECK_INTERVAL = config.has('connHealthCheckInterval')
+  ? config.get('connHealthCheckInterval')
+  : '30000';
+const ENABLE_HEALTHCHECK = config.has('enableConnHealthcheck')
+  ? config.get('enableConnHealthcheck')
+  : false;
 
 let instance = null;
 
@@ -42,7 +48,9 @@ class Monitor {
               if (host.startupFailureNotified) {
                 host.startupFailureNotified = false;
                 this.emitHookWarning(`${HOST_NAME} triggered STARTUP_CONNECT_SUCCESS for Kurento ${host.url} ${host.ip}`);
-
+              }
+              if (ENABLE_HEALTHCHECK) {
+                this.healthcheck(newHost);
               }
             }
             catch (e) {
@@ -70,32 +78,40 @@ class Monitor {
     processHosts();
   }
 
-  static connectToHost (url, ip) {
-    const connect =  new Promise((resolve, reject) => {
+  static connect (url, ip) {
+    return new Promise((resolve, reject) => {
       mediaServerClient(url, {failAfter: KMS_FAIL_AFTER}, (error, client) => {
         if (error) {
+          if (client && client.close) {
+            client.close()
+          }
           return reject(error);
         }
         const newHost = {
           id: Monitor.greatRandomToken(12),
           url,
           ip,
-          medias: {
-            'main': 0,
-            'content' : 0,
-            'audio' : 0,
-          },
           client: client
         };
         return resolve(newHost);
       });
     });
+  }
 
+  static connectToHost (url, ip) {
     const failOver = new Promise((resolve, reject) => {
       setTimeout(reject, KMS_FAILOVER_TIMEOUT_MS, 'connectionTimeout');
     });
 
-    return Promise.race([connect, failOver]);
+    return Promise.race([Monitor.connect(url, ip), failOver]);
+  }
+
+  static probeConnectionHealth (url, ip) {
+    const failOver = new Promise((resolve, reject) => {
+      setTimeout(reject, KMS_FAILOVER_TIMEOUT_MS, 'unhealthy');
+    });
+
+    return Promise.race([Monitor.connect(url, ip), failOver]);
   }
 
   addHost (host) {
@@ -224,6 +240,31 @@ class Monitor {
     }).end(JSON.stringify(data));
   }
 
+  healthcheck (host) {
+    if (host.healthcheckerInterval) return;
+    const { url, ip } = host;
+    Logger.info(`[monitor] Starting connection healthchecker for host url=${url} ip=${ip}`);
+    host.healthcheckerInterval = setInterval(async () => {
+      try {
+        const hcClient = await Monitor.probeConnectionHealth(url, ip);
+        if (host.healthcheckFailureNotified ) {
+          host.healthcheckFailureNotified = false;
+          this.emitHookWarning(`${HOST_NAME} triggered WS_CONN_HEALTHY for Kurento ${url} ${ip}`);
+        }
+        if (hcClient.client && hcClient.client.close) {
+          hcClient.client.close();
+        }
+      }
+      catch (e) {
+        Logger.error(`[monitor] Healthcheck FAILED for host ${JSON.stringify({ url, ip })}`);
+        if (!host.healthcheckFailureNotified) {
+          this.emitHookWarning(`${HOST_NAME} triggered WS_CONN_UNHEALTHY for Kurento ${host.url} ${host.ip}`);
+          host.healthcheckFailureNotified = true;
+        }
+      };
+    }, CONNECTION_HEALTH_CHECK_INTERVAL);
+  }
+
   static greatRandomToken (size, base = 32) {
     let i, r,
       token = '';
@@ -240,3 +281,4 @@ class Monitor {
 const monitor = new Monitor();
 
 monitor.startHosts();
+

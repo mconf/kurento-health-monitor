@@ -4,3 +4,5 @@ kurento:
 kurentoStartupRetries: Infinity
 webhookURL: WEBHOOK_URL
 hostAddress: HOST_ADDRESS
+enableConnHealthcheck: true
+connHealthCheckInterval: 30000

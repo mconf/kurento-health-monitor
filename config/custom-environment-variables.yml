@@ -3,3 +3,5 @@ kurento:
   __format: json
 webhookURL: WEBHOOK_URL
 hostAddress: HOST_ADDRESS
+enableConnHealthcheck: CONN_HEALTHCHECK
+connHealthCheckInterval: CONN_HEALTHCHECK_INTERVAL
