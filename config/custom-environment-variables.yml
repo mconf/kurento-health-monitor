@@ -5,3 +5,10 @@ webhookURL: WEBHOOK_URL
 hostAddress: HOST_ADDRESS
 enableConnHealthcheck: CONN_HEALTHCHECK
 connHealthCheckInterval: CONN_HEALTHCHECK_INTERVAL
+freeswitch:
+    enabled:
+      __name: FS_ENABLED
+      __format: json
+    eslIp: ESL_IP
+    eslPort: ESL_PORT
+    eslPassword: ESL_PASSWORD

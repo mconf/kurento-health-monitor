@@ -6,6 +6,7 @@ const Logger = console;
 const http = require('https');
 const url = require('url');
 const os = require('os');
+const EslWrapper = require('./esl.js');
 
 const KMS_ARRAY = config.get('kurento');
 const KMS_FAIL_AFTER = 5;
@@ -23,16 +24,35 @@ const ENABLE_HEALTHCHECK = config.has('enableConnHealthcheck')
   ? config.get('enableConnHealthcheck')
   : false;
 
+const MONITOR_FS = config.get('freeswitch.enabled');
+const ESL_PARAMS = {
+  host: (config.has('freeswitch.eslIP')
+    ? config.get('freeswitch.eslIP')
+    : '127.0.0.1'),
+  port: (config.has('freeswitch.eslPort')
+    ? config.get('freeswitch.eslPort')
+    : '8021'),
+  auth: (config.has('freeswitch.eslPassword')
+    ? config.get('freeswitch.eslPassword')
+    : 'ClueCon')
+};
+
 let instance = null;
 
 class Monitor {
   constructor () {
     if (instance == null) {
       this.hosts = [];
+      this.esl;
       this._reconnectionRoutine = {};
       instance = this;
     }
     return instance;
+  }
+
+  monitorFreeSWITCH () {
+    this.esl = new EslWrapper(ESL_PARAMS, this.emitHookWarning);
+    this.esl.start();
   }
 
   async startHosts () {
@@ -281,4 +301,8 @@ class Monitor {
 const monitor = new Monitor();
 
 monitor.startHosts();
+
+if (MONITOR_FS) {
+  monitor.monitorFreeSWITCH();
+}
 

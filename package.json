@@ -1,6 +1,6 @@
 {
   "name": "kurento-health-monitor",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "private": true,
   "scripts": {
     "start": "node server.js"
@@ -8,7 +8,8 @@
   "dependencies": {
     "config": "1.30.0",
     "js-yaml": "3.13.1",
-    "kurento-client": "git+https://github.com/Kurento/kurento-client-js.git#6.11.0"
+    "kurento-client": "git+https://github.com/Kurento/kurento-client-js.git#6.13.0",
+    "modesl": "1.2.1"
   },
   "optionalDependencies": {}
 }
