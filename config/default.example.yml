@@ -6,3 +6,9 @@ webhookURL: WEBHOOK_URL
 hostAddress: HOST_ADDRESS
 enableConnHealthcheck: true
 connHealthCheckInterval: 30000
+
+freeswitch:
+  enabled: true
+  eslIP: '127.0.0.1'
+  eslPort: 8021
+  eslPassword: 'ClueCon'
