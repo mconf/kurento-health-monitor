@@ -7,6 +7,7 @@ const http = require('https');
 const url = require('url');
 const os = require('os');
 const EslWrapper = require('./esl.js');
+const WebSocket = require('ws');
 
 const KMS_ARRAY = config.get('kurento');
 const KMS_FAIL_AFTER = 5;
@@ -126,12 +127,62 @@ class Monitor {
     return Promise.race([Monitor.connect(url, ip), failOver]);
   }
 
-  static probeConnectionHealth (url, ip) {
-    const failOver = new Promise((resolve, reject) => {
-      setTimeout(reject, KMS_FAILOVER_TIMEOUT_MS, 'unhealthy');
-    });
+  static probeConnectionHealth(url) {
+    return new Promise((resolve, reject) => {
+      let ws = new WebSocket(url, { handshakeTimeout: KMS_FAILOVER_TIMEOUT_MS });
 
-    return Promise.race([Monitor.connect(url, ip), failOver]);
+      const destroyWs = () => {
+        ws.close();
+        ws = null;
+      };
+
+      const removeWsListeners = () => {
+        ws.removeAllListeners('close');
+        ws.removeAllListeners('error');
+        ws.removeAllListeners('open');
+      };
+
+      const onClose = (code, reason) => {
+        console.error(`[monitor] Connection healthcheck: WS closed prematurely code=${code} reason=${reason}`);
+        removeWsListeners();
+        destroyWs();
+        return reject(reason);
+      };
+
+      const onOpen = () => {
+        const ping = {
+          id: 1,
+          method: "ping",
+          params: {
+            interval: KMS_FAIL_AFTER * 1000,
+          },
+          jsonrpc: "2.0"
+        }
+
+        ws.on('message', (data = {}) => {
+          const pong = JSON.parse(data);
+          const { result, id } = pong;
+          if (id === ping.id && result && result.value === 'pong') {
+            removeWsListeners();
+            destroyWs();
+            return resolve();
+          }
+        });
+
+        ws.send(JSON.stringify(ping));
+      };
+
+      const onError = (error) => {
+        console.error(`[monitor] Connection healthcheck: WS conn error`, { error });
+        removeWsListeners();
+        destroyWs();
+        return reject(error);
+      };
+
+      ws.once('open', onOpen);
+      ws.once('close', onClose);
+      ws.once('error', onError);
+    });
   }
 
   addHost (host) {
@@ -266,13 +317,11 @@ class Monitor {
     Logger.info(`[monitor] Starting connection healthchecker for host url=${url} ip=${ip}`);
     host.healthcheckerInterval = setInterval(async () => {
       try {
-        const hcClient = await Monitor.probeConnectionHealth(url, ip);
+        await Monitor.probeConnectionHealth(url);
+
         if (host.healthcheckFailureNotified ) {
           host.healthcheckFailureNotified = false;
           this.emitHookWarning(`${HOST_NAME} triggered WS_CONN_HEALTHY for Kurento ${url} ${ip}`);
-        }
-        if (hcClient.client && hcClient.client.close) {
-          hcClient.client.close();
         }
       }
       catch (e) {
