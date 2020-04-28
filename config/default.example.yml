@@ -12,3 +12,4 @@ freeswitch:
   eslIP: '127.0.0.1'
   eslPort: 8021
   eslPassword: 'ClueCon'
+  sipWssUrl: wss://127.0.0.1/ws

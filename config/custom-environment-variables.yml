@@ -12,3 +12,4 @@ freeswitch:
     eslIP: ESL_IP
     eslPort: ESL_PORT
     eslPassword: ESL_PASSWORD
+    sipWssUrl: SIP_WSS_URL

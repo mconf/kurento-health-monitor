@@ -9,7 +9,11 @@ const ESL_EVENTS = {
   END: "esl::end",
   DISCONNECT_NOTICE: "esl::events::disconnect::notice",
 };
-
+const CONNECTION_HEALTH_CHECK_INTERVAL = config.has('connHealthCheckInterval')
+  ? config.get('connHealthCheckInterval')
+  : '30000';
+const FS_FAILOVER_TIMEOUT_MS = 15000;
+const WebSocket = require('ws');
 
 /**
  * @classdesc
@@ -37,6 +41,8 @@ class EslWrapper {
         this.params.port : ESL_PORT,
       auth: (this.params && this.params.auth) ?
         this.params.auth : ESL_PASS,
+      sipWssUrl: (this.params && this.params.sipWssUrl) ?
+        this.params.sipWssUrl: undefined,
     };
   }
 
@@ -85,6 +91,7 @@ class EslWrapper {
     try {
       this._connect();
       this._monitorESLClientConnectionErrors();
+      this.healthcheck();
       } catch (error) {
         Logger.error(LOG_PREFIX, `Error when starting ESL interface`,
           { error });
@@ -157,6 +164,71 @@ class EslWrapper {
       this.failureNotified = false;
     }
   }
+
+  probeConnectionHealth(url) {
+    return new Promise((resolve, reject) => {
+      let ws = new WebSocket(url, { handshakeTimeout: FS_FAILOVER_TIMEOUT_MS });
+
+      const destroyWs = () => {
+        ws.close();
+        ws = null;
+      };
+
+      const removeWsListeners = () => {
+        ws.removeAllListeners('close');
+        ws.removeAllListeners('error');
+        ws.removeAllListeners('open');
+      };
+
+      const onClose = (code, reason) => {
+        console.error(`[esl] Connection healthcheck: WS closed prematurely code=${code} reason=${reason}`);
+        removeWsListeners();
+        destroyWs();
+        return reject(reason);
+      };
+
+      const onOpen = () => {
+        removeWsListeners();
+        destroyWs();
+        return resolve();
+      };
+
+      const onError = (error) => {
+        console.error(`[esl] Connection healthcheck: WS conn error`, { error });
+        removeWsListeners();
+        destroyWs();
+        return reject(error);
+      };
+
+      ws.once('open', onOpen);
+      ws.once('close', onClose);
+      ws.once('error', onError);
+    });
+  }
+
+  healthcheck () {
+    const sipWssUrl = this._clientOptions.sipWssUrl;
+    if (this.healthcheckerInterval || !sipWssUrl) return;
+    Logger.info(`[esl] Starting connection healthchecker for FreeSWITCH`, { sipWssUrl });
+    this.healthcheckerInterval = setInterval(async () => {
+      try {
+        await this.probeConnectionHealth(sipWssUrl);
+
+        if (this.healthcheckFailureNotified ) {
+          this.healthcheckFailureNotified = false;
+          this.emitHookWarning(`${HOST_NAME} triggered WS_CONN_HEALTHY for FreeSWITCH ${sipWssUrl}`);
+        }
+      }
+      catch (e) {
+        Logger.error(`[esl] Healthcheck FAILED for FreeSWITCH ${sipWssUrl}`);
+        if (!this.healthcheckFailureNotified) {
+          this.emitHookWarning(`${HOST_NAME} triggered WS_CONN_UNHEALTHY | ERROR 1002 for FreeSWITCH ${sipWssUrl}`);
+          this.healthcheckFailureNotified = true;
+        }
+      };
+    }, CONNECTION_HEALTH_CHECK_INTERVAL);
+  }
+
 
   //check if body has error message
   _hasError(body) {

@@ -35,7 +35,10 @@ const ESL_PARAMS = {
     : '8021'),
   auth: (config.has('freeswitch.eslPassword')
     ? config.get('freeswitch.eslPassword')
-    : 'ClueCon')
+    : 'ClueCon'),
+  sipWssUrl: (config.has('freeswitch.sipWssUrl')
+    ? config.get('freeswitch.sipWssUrl')
+    : undefined),
 };
 
 let instance = null;
