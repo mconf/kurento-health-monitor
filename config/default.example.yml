@@ -9,6 +9,7 @@ connHealthCheckInterval: 30000
 
 freeswitch:
   enabled: true
+  healthcheck: false
   eslIP: '127.0.0.1'
   eslPort: 8021
   eslPassword: 'ClueCon'

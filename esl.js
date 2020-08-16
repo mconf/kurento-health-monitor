@@ -14,6 +14,9 @@ const CONNECTION_HEALTH_CHECK_INTERVAL = config.has('connHealthCheckInterval')
   : '30000';
 const FS_FAILOVER_TIMEOUT_MS = 15000;
 const WebSocket = require('ws');
+const HEALTHCHECK_ENABLED = config.has('freeswitch.healthcheck')
+  ? config.get('freeswitch.healthcheck')
+  : false;
 
 /**
  * @classdesc
@@ -91,7 +94,9 @@ class EslWrapper {
     try {
       this._connect();
       this._monitorESLClientConnectionErrors();
-      this.healthcheck();
+      if (HEALTHCHECK_ENABLED) {
+        this.healthcheck();
+      }
       } catch (error) {
         Logger.error(LOG_PREFIX, `Error when starting ESL interface`,
           { error });
